@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#12352b">
+<title>JRA レースデータ分析ラボ</title>
+<style>
+:root{--bg:#f3f6f4;--card:#fff;--ink:#17231d;--muted:#5d6c63;--green:#12352b;--line:#dce5df;--accent:#dcefe4}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Noto Sans JP",sans-serif;line-height:1.55}
+header{background:var(--green);color:#fff;padding:22px 16px 20px}header h1{font-size:22px;margin:0 0 5px}header p{margin:0;color:#d6e7dc;font-size:13px}
+main{max-width:960px;margin:auto;padding:14px}.notice{background:#fff8df;border:1px solid #f0dfa0;border-radius:12px;padding:12px;font-size:13px;margin-bottom:14px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px}.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:15px;margin-bottom:12px;box-shadow:0 2px 8px #17372908}
+h2{font-size:17px;margin:0 0 10px}label{display:block;font-size:13px;color:var(--muted);margin:8px 0 4px}input,select,button,textarea{font:inherit}input,select,textarea{width:100%;border:1px solid #cbd8cf;border-radius:9px;padding:10px;background:#fff;color:var(--ink)}button{border:0;border-radius:10px;padding:11px 13px;background:var(--green);color:white;font-weight:650;cursor:pointer}button.secondary{background:#e7eee9;color:var(--green);border:1px solid #cbd8cf}button.danger{background:#8c3434}.row{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}.row button{flex:1}.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.stat{background:#f4f8f5;border:1px solid var(--line);border-radius:10px;padding:10px}.stat strong{font-size:20px;display:block}.stat span{font-size:12px;color:var(--muted)}
+table{width:100%;border-collapse:collapse;font-size:13px;min-width:620px}th,td{padding:9px 8px;border-bottom:1px solid var(--line);text-align:left;white-space:nowrap}th{background:#f4f8f5;color:#415148;position:sticky;top:0}.table-wrap{overflow:auto;border:1px solid var(--line);border-radius:10px}.small{font-size:12px;color:var(--muted)}.empty{padding:20px;text-align:center;color:var(--muted);font-size:13px}.tag{display:inline-block;background:var(--accent);color:var(--green);border-radius:99px;padding:3px 8px;font-size:12px}.file-label{display:inline-flex;align-items:center;justify-content:center;background:#e7eee9;color:var(--green);border:1px solid #cbd8cf;border-radius:10px;padding:11px 13px;font-weight:650;cursor:pointer}input[type=file]{display:none}.bar{height:9px;background:#e4ebe6;border-radius:99px;overflow:hidden;margin:5px 0 10px}.bar i{display:block;height:100%;background:#4e8b68}.footer{padding:14px;text-align:center;color:var(--muted);font-size:12px}
+</style>
+</head>
+<body>
+<header><h1>🏇 JRA レースデータ分析ラボ</h1><p>過去のレース記録を整理・比較する無料のブラウザアプリ</p></header>
+<main>
+<div class="notice"><b>このアプリについて：</b>賭けの推奨や着順予測は行わず、読み込んだ過去データの集計・可視化を行います。データはこのブラウザ内に保存され、外部サーバーには送信しません。JRA公式サイトからの自動取得機能はありません。データの利用条件を確認し、適切に入手したCSVを読み込んでください。</div>
+<div class="grid">
+<section class="card">
+<h2>① CSVデータを読み込む</h2>
+<p class="small">CSVファイルの列名例：日付,レース名,競馬場,距離,芝ダート,馬場状態,馬名,着順,走破タイム,騎手</p>
+<label class="file-label" for="csvFile">CSVファイルを選択</label><input id="csvFile" type="file" accept=".csv,text/csv">
+<div class="row"><button id="sampleBtn" class="secondary">サンプルデータを読み込む</button><button id="exportBtn" class="secondary">データを書き出す</button></div>
+<p id="importMsg" class="small" aria-live="polite">CSVはUTF-8推奨。列名が異なる場合は一般的な列名を自動判定します。</p>
+</section>
+<section class="card">
+<h2>② 表示を絞り込む</h2>
+<label for="venueFilter">競馬場</label><select id="venueFilter"><option value="">すべて</option></select>
+<label for="surfaceFilter">芝・ダート</label><select id="surfaceFilter"><option value="">すべて</option><option>芝</option><option>ダート</option><option>障害</option></select>
+<label for="horseSearch">競走馬名</label><input id="horseSearch" placeholder="馬名の一部を入力">
+<div class="row"><button id="resetFilter" class="secondary">絞り込みを解除</button><button id="clearBtn" class="danger">保存データを消去</button></div>
+</section>
+</div>
+<section class="card">
+<h2>📊 集計サマリー</h2>
+<div class="stats">
+<div class="stat"><strong id="raceCount">0</strong><span>レコード数</span></div>
+<div class="stat"><strong id="horseCount">0</strong><span>競走馬数</span></div>
+<div class="stat"><strong id="venueCount">0</strong><span>競馬場数</span></div>
+</div>
+<div class="grid" style="margin-top:14px">
+<div><h2 style="font-size:15px">競馬場ごとの記録件数</h2><div id="venueStats" class="small">データがありません。</div></div>
+<div><h2 style="font-size:15px">着順の分布（読み込んだ記録）</h2><div id="finishStats" class="small">データがありません。</div></div>
+</div>
+</section>
+<section class="card">
+<h2>🐎 競走馬ごとの成績集計</h2>
+<p class="small">読み込んだレコードに基づく集計です。データの範囲や欠損によって結果は変わります。</p>
+<div class="table-wrap"><table><thead><tr><th>競走馬</th><th>出走記録</th><th>平均着順</th><th>1着回数</th><th>3着以内回数</th></tr></thead><tbody id="horseTable"></tbody></table></div>
+</section>
+<section class="card">
+<h2>📄 読み込んだレコード</h2>
+<div class="table-wrap"><table><thead><tr><th>日付</th><th>レース名</th><th>競馬場</th><th>距離</th><th>馬場</th><th>競走馬</th><th>着順</th><th>走破タイム</th><th>騎手</th></tr></thead><tbody id="dataTable"></tbody></table></div>
+<div id="tableEmpty" class="empty">CSVを読み込むか、サンプルデータを読み込んでください。</div>
+</section>
+<div class="footer">JRA レースデータ分析ラボ · 無料・ローカル保存 · 予測や馬券の推奨は行いません</div>
+</main>
+<script>
+const $=id=>document.getElementById(id);
+const aliases={
+ date:['日付','開催日','年月日','date'],race:['レース名','競走名','レース','race'],venue:['競馬場','場所','場名','venue'],
+ distance:['距離','距離m','distance'],surface:['芝ダート','芝・ダート','コース','馬場種別','surface'],condition:['馬場状態','馬場','condition'],
+ horse:['馬名','競走馬名','horse','horse_name'],finish:['着順','順位','確定着順','finish','rank'],time:['走破タイム','タイム','time'],jockey:['騎手','騎手名','jockey']
+};
+let records=[];
+const sample=[
+{date:'2025-04-06',race:'サンプル記念',venue:'東京',distance:'1600',surface:'芝',condition:'良',horse:'サンプルホースA',finish:'1',time:'1:33.8',jockey:'騎手A'},
+{date:'2025-04-06',race:'サンプル記念',venue:'東京',distance:'1600',surface:'芝',condition:'良',horse:'サンプルホースB',finish:'2',time:'1:34.1',jockey:'騎手B'},
+{date:'2025-04-06',race:'サンプル記念',venue:'東京',distance:'1600',surface:'芝',condition:'良',horse:'サンプルホースC',finish:'3',time:'1:34.4',jockey:'騎手C'},
+{date:'2025-05-11',race:'サンプルステークス',venue:'京都',distance:'1800',surface:'ダート',condition:'稍重',horse:'サンプルホースA',finish:'4',time:'1:51.2',jockey:'騎手A'},
+{date:'2025-05-11',race:'サンプルステークス',venue:'京都',distance:'1800',surface:'ダート',condition:'稍重',horse:'サンプルホースD',finish:'1',time:'1:50.7',jockey:'騎手D'},
+{date:'2025-06-15',race:'サンプルカップ',venue:'阪神',distance:'2000',surface:'芝',condition:'稍重',horse:'サンプルホースB',finish:'1',time:'2:00.5',jockey:'騎手B'},
+{date:'2025-06-15',race:'サンプルカップ',venue:'阪神',distance:'2000',surface:'芝',condition:'稍重',horse:'サンプルホースA',finish:'2',time:'2:00.8',jockey:'騎手A'},
+{date:'2025-06-15',race:'サンプルカップ',venue:'阪神',distance:'2000',surface:'芝',condition:'稍重',horse:'サンプルホースC',finish:'5',time:'2:02.0',jockey:'騎手C'}
+];
+function normalizeHeader(h){return String(h||'').replace(/^\uFEFF/,'').trim().toLowerCase().replace(/\s/g,'')}
+function parseCSV(text){
+ const rows=[];let row=[],cell='',quoted=false;
+ text=text.replace(/^\uFEFF/,'');
+ for(let i=0;i<text.length;i++){const c=text[i],n=text[i+1];
+  if(c==='"'&&quoted&&n==='"'){cell+='"';i++}
+  else if(c==='"'){quoted=!quoted}
+  else if(c===','&&!quoted){row.push(cell.trim());cell=''}
+  else if((c==='\n'||c==='\r')&&!quoted){if(c==='\r'&&n==='\n')i++;row.push(cell.trim());if(row.some(x=>x!==''))rows.push(row);row=[];cell=''}
+  else cell+=c;
+ }
+ if(cell.length||row.length){row.push(cell.trim());rows.push(row)}
+ if(rows.length<2)return [];
+ const headers=rows.shift().map(normalizeHeader);
+ const idx={};
+ for(const [key,list] of Object.entries(aliases)){idx[key]=headers.findIndex(h=>list.some(a=>normalizeHeader(a)===h))}
+ return rows.map(r=>{const o={};for(const k of Object.keys(aliases)){o[k]=idx[k]>=0?(r[idx[k]]||''):''}return o}).filter(o=>o.horse||o.race||o.finish);
+}
+function safe(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+function loadSaved(){try{const s=localStorage.getItem('jraDataLabRecords');if(s)records=JSON.parse(s)}catch(e){records=[]}}
+function save(){try{localStorage.setItem('jraDataLabRecords',JSON.stringify(records))}catch(e){$('importMsg').textContent='保存できませんでした。データ量を減らして再試行してください。'}}
+function current(){const v=$('venueFilter').value,s=$('surfaceFilter').value,q=$('horseSearch').value.trim().toLowerCase();return records.filter(r=>(!v||r.venue===v)&&(!s||String(r.surface).includes(s))&&(!q||String(r.horse).toLowerCase().includes(q)))}
+function populateVenue(){const old=$('venueFilter').value;const venues=[...new Set(records.map(r=>r.venue).filter(Boolean))].sort();$('venueFilter').innerHTML='<option value="">すべて</option>'+venues.map(v=>`<option>${safe(v)}</option>`).join('');if(venues.includes(old))$('venueFilter').value=old}
+function render(){
+ const data=current(),horses=[...new Set(data.map(r=>r.horse).filter(Boolean))];
+ $('raceCount').textContent=data.length.toLocaleString();$('horseCount').textContent=horses.length.toLocaleString();$('venueCount').textContent=new Set(data.map(r=>r.venue).filter(Boolean)).size.toLocaleString();
+ const venues={};data.forEach(r=>{if(r.venue)venues[r.venue]=(venues[r.venue]||0)+1});
+ $('venueStats').innerHTML=Object.keys(venues).length?Object.entries(venues).sort((a,b)=>b[1]-a[1]).map(([k,n])=>`<div>${safe(k)}：${n}件<div class="bar"><i style="width:${Math.max(3,n/Math.max(...Object.values(venues))*100)}%"></i></div></div>`).join(''):'データがありません。';
+ const finishes={};data.forEach(r=>{const n=parseInt(r.finish,10);if(Number.isFinite(n)&&n>0)finishes[n]=(finishes[n]||0)+1});
+ $('finishStats').innerHTML=Object.keys(finishes).length?Object.entries(finishes).sort((a,b)=>+a[0]- +b[0]).slice(0,10).map(([k,n])=>`<div>${k}着：${n}件<div class="bar"><i style="width:${Math.max(3,n/Math.max(...Object.values(finishes))*100)}%"></i></div></div>`).join(''):'着順データがありません。';
+ const groups={};data.forEach(r=>{if(!r.horse)return;(groups[r.horse]??=[]).push(parseInt(r.finish,10))});
+ const horseRows=Object.entries(groups).map(([name,fin])=>{const valid=fin.filter(n=>Number.isFinite(n)&&n>0);return {name,count:fin.length,avg:valid.length?valid.reduce((a,b)=>a+b,0)/valid.length:null,win:valid.filter(n=>n===1).length,top3:valid.filter(n=>n<=3).length}}).sort((a,b)=>(a.avg??999)-(b.avg??999));
+ $('horseTable').innerHTML=horseRows.map(r=>`<tr><td>${safe(r.name)}</td><td>${r.count}</td><td>${r.avg===null?'—':r.avg.toFixed(2)}</td><td>${r.win}</td><td>${r.top3}</td></tr>`).join('');
+ $('dataTable').innerHTML=data.slice(0,500).map(r=>`<tr><td>${safe(r.date)}</td><td>${safe(r.race)}</td><td>${safe(r.venue)}</td><td>${safe(r.distance)}</td><td>${safe(r.surface)} ${safe(r.condition)}</td><td>${safe(r.horse)}</td><td>${safe(r.finish)}</td><td>${safe(r.time)}</td><td>${safe(r.jockey)}</td></tr>`).join('');
+ $('tableEmpty').style.display=data.length?'none':'block';
+ if(data.length>500)$('tableEmpty').textContent='表示は先頭500件までです。集計には絞り込み対象の全件が使われています。';
+}
+$('csvFile').addEventListener('change',async e=>{const f=e.target.files[0];if(!f)return;try{const parsed=parseCSV(await f.text());if(!parsed.length){$('importMsg').textContent='読み込める行がありません。CSVの列名と形式を確認してください。';return}records=parsed;save();populateVenue();render();$('importMsg').textContent=`${parsed.length}件を読み込みました。`}catch(err){$('importMsg').textContent='読み込みに失敗しました。CSVファイルを確認してください。'}e.target.value=''});
+$('sampleBtn').addEventListener('click',()=>{records=sample.map(r=>({...r}));save();populateVenue();render();$('importMsg').textContent='サンプルデータ8件を読み込みました。実在の競走馬・レース結果ではありません。'});
+$('exportBtn').addEventListener('click',()=>{if(!records.length){$('importMsg').textContent='書き出すデータがありません。';return}const cols=['date','race','venue','distance','surface','condition','horse','finish','time','jockey'];const names=['日付','レース名','競馬場','距離','芝ダート','馬場状態','馬名','着順','走破タイム','騎手'];const csv=[names,...records.map(r=>cols.map(k=>String(r[k]??'')))].map(row=>row.map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(',')).join('\r\n');const a=document.createElement('a');a.href=URL.createObjectURL(new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8'}));a.download='jra-analysis-data.csv';a.click();URL.revokeObjectURL(a.href)});
+['venueFilter','surfaceFilter','horseSearch'].forEach(id=>$(id).addEventListener(id==='horseSearch'?'input':'change',render));
+$('resetFilter').addEventListener('click',()=>{$('venueFilter').value='';$('surfaceFilter').value='';$('horseSearch').value='';render()});
+$('clearBtn').addEventListener('click',()=>{if(confirm('このブラウザに保存した分析データを消去しますか？')){records=[];save();localStorage.removeItem('jraDataLabRecords');populateVenue();render();$('importMsg').textContent='保存データを消去しました。'}});
+loadSaved();populateVenue();render();
+</script>
+</body></html>
